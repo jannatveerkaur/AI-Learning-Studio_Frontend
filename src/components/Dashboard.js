@@ -4,7 +4,7 @@ import LearningWorkspace from './LearningWorkspace';
 
 const Dashboard = ({ onLogout, darkMode, toggleDarkMode }) => {
   const [activeView, setActiveView] = useState('home');
-  const [history, setHistory] = useState([
+  const [history] = useState([
     { id: 1, title: 'Introduction to Machine Learning', date: '2 hours ago' },
     { id: 2, title: 'React Best Practices 2026', date: 'Yesterday' },
     { id: 3, title: 'Python FastAPI Tutorial', date: '2 days ago' },

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { PlayCircle, FileText, Lightbulb, Trophy, Loader2, CheckCircle, XCircle, Youtube, Sparkles, Brain, Download, Copy, RotateCcw, TrendingUp, BookOpen } from 'lucide-react';
+import { FileText, Lightbulb, Trophy, Loader2, CheckCircle, XCircle, Youtube, Sparkles, Brain, RotateCcw, BookOpen } from 'lucide-react';
 
 const LearningWorkspace = () => {
   const [inputMode, setInputMode] = useState('url');
@@ -15,7 +15,6 @@ const LearningWorkspace = () => {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [score, setScore] = useState(0);
   const [processingStep, setProcessingStep] = useState('');
-  const [copied, setCopied] = useState(false);
 
   const API_BASE = process.env.REACT_APP_API_URL || 'https://ai-learning-studio-backend.onrender.com';
 
@@ -80,12 +79,6 @@ const LearningWorkspace = () => {
       setLoading(false);
       setProcessingStep('');
     }
-  };
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   const resetWorkspace = () => {
