@@ -1,0 +1,125 @@
+from groq import Groq
+import json
+from typing import Dict
+from config import settings
+
+
+class OpenAIService:
+    """Service to process transcripts using Groq (Llama 3)"""
+    
+    def __init__(self):
+        self.client = Groq(api_key=settings.GROQ_API_KEY)
+        self.model = settings.GROQ_MODEL
+        self.temperature = settings.GROQ_TEMPERATURE
+        self.max_tokens = settings.GROQ_MAX_TOKENS
+    
+    def _build_system_prompt(self) -> str:
+        """Create strict system prompt for consistent JSON output"""
+        return """You are an expert educational content analyzer. Generate structured learning materials.
+
+Return ONLY valid JSON with this structure:
+{
+  "summary": "3 paragraphs separated by newlines",
+  "key_points": ["point 1", "point 2", "point 3", "point 4", "point 5"],
+  "quiz": [{"question": "text", "options": ["A", "B", "C", "D"], "correct_answer": "A"}]
+}
+
+Requirements:
+- summary: Exactly 3 paragraphs (2-3 sentences each)
+- key_points: Exactly 5 items
+- quiz: Exactly 10 questions with 4 options each
+- Return only JSON, no extra text"""
+  "quiz": [
+    {
+      "question": "Question text here?",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correct_answer": "Option A"
+    }
+  ]
+}
+
+STRICT REQUIREMENTS:
+- summary: Exactly 3 paragraphs, separated by newlines
+- key_points: Exactly 5 bullet points
+- quiz: Exactly 10 multiple-choice questions
+- Each quiz question MUST have exactly 4 options
+- correct_answer MUST be one of the 4 options (exact match)
+- All questions should test understanding, not just recall
+- Return ONLY the JSON object, no markdown formatting, no explanations
+"""
+    
+    def _build_user_prompt(self, transcript: str, video_title: str) -> str:
+        """Create user prompt with transcript"""
+        return f"""Video Title: {video_title}
+
+Transcript:
+{transcript}
+
+Please analyze this video transcript and generate:
+1. A comprehensive 3-paragraph summary
+2. The 5 most important key points or concepts
+3. 10 multiple-choice quiz questions to test understanding
+
+Return the response as a JSON object following the exact structure specified."""
+    
+    def process_transcript(self, transcript: str, video_title: str) -> Dict:
+        """
+        Process transcript with Groq and return structured data
+        
+        Returns:
+            Dict with 'summary', 'key_points', and 'quiz'
+        """
+        try:
+            # Call Groq API
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": self._build_system_prompt()},
+                    {"role": "user", "content": self._build_user_prompt(transcript, video_title)}
+                ],
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                response_format={"type": "json_object"}  # Ensures JSON response
+            )
+            
+            # Extract and parse JSON
+            content = response.choices[0].message.content
+            result = json.loads(content)
+            
+            # Validate structure
+            self._validate_response(result)
+            
+            return result
+            
+        except json.JSONDecodeError as e:
+            raise Exception(f"Failed to parse AI response as JSON: {str(e)}")
+        except Exception as e:
+            raise Exception(f"OpenAI processing error: {str(e)}")
+    
+    def _validate_response(self, result: Dict) -> None:
+        """Validate that AI response matches expected structure"""
+        required_keys = ["summary", "key_points", "quiz"]
+        
+        # Check required keys
+        for key in required_keys:
+            if key not in result:
+                raise ValueError(f"Missing required key: {key}")
+        
+        # Validate key_points
+        if not isinstance(result["key_points"], list) or len(result["key_points"]) != settings.REQUIRED_KEY_POINTS:
+            raise ValueError(f"key_points must be a list of exactly {settings.REQUIRED_KEY_POINTS} items")
+        
+        # Validate quiz
+        if not isinstance(result["quiz"], list) or len(result["quiz"]) != settings.REQUIRED_QUIZ_QUESTIONS:
+            raise ValueError(f"quiz must be a list of exactly {settings.REQUIRED_QUIZ_QUESTIONS} questions")
+        
+        # Validate each quiz question
+        for idx, question in enumerate(result["quiz"]):
+            if not all(key in question for key in ["question", "options", "correct_answer"]):
+                raise ValueError(f"Quiz question {idx + 1} missing required fields")
+            
+            if not isinstance(question["options"], list) or len(question["options"]) != settings.QUIZ_OPTIONS_COUNT:
+                raise ValueError(f"Quiz question {idx + 1} must have exactly {settings.QUIZ_OPTIONS_COUNT} options")
+            
+            if question["correct_answer"] not in question["options"]:
+                raise ValueError(f"Quiz question {idx + 1}: correct_answer must be one of the options")
